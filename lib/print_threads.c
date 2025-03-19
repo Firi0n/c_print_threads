@@ -1,3 +1,5 @@
+#define  _GNU_SOURCE
+
 #include "../include/print_threads.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 // Safely lock the mutex and handle errors
 static void safe_mutex_lock(pthread_mutex_t *mutex) {
@@ -26,9 +29,8 @@ static void safe_mutex_unlock(pthread_mutex_t *mutex) {
 }
 
 // Print the progress of each thread
-void print_threads(printing_config *data) {
+void print_threads(printing_config *data, bool overwrite) {
     safe_mutex_lock(data->mutex); // Lock the mutex to ensure safe output
-    printf("\033[s"); // Save the cursor position
 
     for (int i = 0; i < data->num_threads; i++) {
         int progress = (*data->percentages[i]) * data->bar_length / 100;
@@ -37,29 +39,22 @@ void print_threads(printing_config *data) {
                 data->threads[i], progress, data->total_bar, data->head_char,
                 data->bar_length - progress, "", *data->percentages[i]);
     }
-
-    printf("\033[u"); // Restore the cursor position
+    if(overwrite){
+        printf("\033[%dA", data->num_threads); // Move the cursor up by the number of lines corresponding to the number of threads
+    }
     fflush(stdout); // Flush the output to ensure it is displayed
     safe_mutex_unlock(data->mutex); // Unlock the mutex
-}
-
-// Cleanup handler to unlock the mutex when a thread is canceled
-void cleanup_handler(void *arg) {
-    printing_config *data = (printing_config *)arg;
-    safe_mutex_unlock(data->mutex);
 }
 
 // Thread function to print thread progress periodically
 void *print_threads_thread(void *args) {
     printing_config *data = (printing_config *)args;
-    pthread_cleanup_push(cleanup_handler, data); // Register cleanup handler
 
-    while (1) {
-        print_threads(data); // Print thread progress
+    while (!data->exit_condition) {
+        print_threads(data, true); // Print thread progress
         usleep(data->refresh_rate * 1000); // Sleep for the specified refresh rate
     }
-
-    pthread_cleanup_pop(1); // Execute cleanup handler if thread is canceled
+    print_threads(data, false); // Final printing
     return NULL;
 }
 
@@ -88,24 +83,22 @@ printing_config* print_threads_start(pthread_mutex_t *mutex, pthread_t *threads,
         exit(EXIT_FAILURE);
     }
 
-    // Create the printing thread
-    pthread_t t;
-    *conf = (printing_config){mutex, threads, t, percentages, num_threads, refresh_rate, bar_length, head_char, total_bar};
+    *conf = (printing_config){0, mutex, threads, percentages, num_threads, refresh_rate, bar_length, head_char, total_bar, false};
 
-    if (pthread_create(&t, NULL, &print_threads_thread, conf) != 0) {
+    if (pthread_create(&conf->print_thread, NULL, &print_threads_thread, conf) != 0) {
         perror("Error creating the printing thread");
         free(total_bar);
         free(conf);
         exit(EXIT_FAILURE);
     }
-    pthread_detach(t); // Detach the thread to allow automatic cleanup
     return conf;
 }
 
 // Stop the printing thread and clean up resources
 void print_threads_finish(printing_config *conf) {
     if (conf != NULL) {
-        pthread_cancel(conf->print_thread); // Cancel the printing thread
+        conf->exit_condition = true;
+        pthread_join(conf->print_thread, NULL); // join the printing thread
         if (conf->total_bar != NULL) {
             free(conf->total_bar); // Free the progress bar
             conf->total_bar = NULL;
