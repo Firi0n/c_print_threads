@@ -28,21 +28,27 @@ static void safe_mutex_unlock(pthread_mutex_t *mutex) {
     }
 }
 
+void print_thread_smoothly(printing_config *data){
+    
+}
+
 // Print the progress of each thread
 void print_threads(printing_config *data, bool overwrite) {
     safe_mutex_lock(data->mutex); // Lock the mutex to ensure safe output
-
+    
     for (int i = 0; i < data->num_threads; i++) {
         int progress = (*data->percentages[i]) * data->bar_length / 100;
         printf("\033[2K"); // Clear the current line
         printf("Thread %lu: [%.*s%c%*s] %d%%\n",
                 data->threads[i], progress, data->total_bar, data->head_char,
-                data->bar_length - progress, "", *data->percentages[i]);
+                data->bar_length - progress, "", *data->percentages[i]); 
     }
+
     if(overwrite){
         printf("\033[%dA", data->num_threads); // Move the cursor up by the number of lines corresponding to the number of threads
     }
-    fflush(stdout); // Flush the output to ensure it is displayed
+
+    fflush(stdout); // Free stdout buffer
     safe_mutex_unlock(data->mutex); // Unlock the mutex
 }
 
@@ -82,9 +88,9 @@ printing_config* print_threads_start(pthread_mutex_t *mutex, pthread_t *threads,
         free(total_bar);
         exit(EXIT_FAILURE);
     }
-
+    // Set configuration struct
     *conf = (printing_config){0, mutex, threads, percentages, num_threads, refresh_rate, bar_length, head_char, total_bar, false};
-
+    // Create print thread
     if (pthread_create(&conf->print_thread, NULL, &print_threads_thread, conf) != 0) {
         perror("Error creating the printing thread");
         free(total_bar);
@@ -98,7 +104,7 @@ printing_config* print_threads_start(pthread_mutex_t *mutex, pthread_t *threads,
 void print_threads_finish(printing_config *conf) {
     if (conf != NULL) {
         conf->exit_condition = true;
-        pthread_join(conf->print_thread, NULL); // join the printing thread
+        pthread_join(conf->print_thread, NULL); // Join print thread
         if (conf->total_bar != NULL) {
             free(conf->total_bar); // Free the progress bar
             conf->total_bar = NULL;
@@ -115,6 +121,7 @@ void print_in_thread(pthread_mutex_t *mutex, const char *format, ...) {
     printf("\033[2K"); // Clear the current line
     vprintf(format, args); // Print the formatted message
     printf("\n");
+    fflush(stdout); // Free stdout buffer
     safe_mutex_unlock(mutex); // Unlock the mutex
     va_end(args);
 }
