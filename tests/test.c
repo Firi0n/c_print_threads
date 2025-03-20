@@ -9,10 +9,10 @@
 // Structure to hold thread arguments
 typedef struct {
     pthread_mutex_t *mutex;  // Mutex for synchronization
-    int id;                  // Thread ID
-    int max_count;           // Maximum count to reach
-    int delay_us;            // Delay in microseconds
-    int progress;            // Progress percentage
+    unsigned int id;                  // Thread ID
+    unsigned int max_count;           // Maximum count to reach
+    unsigned int delay_us;            // Delay in microseconds
+    unsigned int progress;            // Progress percentage
 } thread_args;
 
 // Function executed by each thread
@@ -34,17 +34,16 @@ int main(int argc, char *argv[]) {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_t threads[NUM_THREADS];
     thread_args args[NUM_THREADS];
-    int *progress_refs[NUM_THREADS];
+    printing_config print_conf = print_threads_init(&mutex, 1, 50, '>', '=');
 
     // Initialize and start threads
     for (int i = 0; i < NUM_THREADS; i++) {
         args[i] = (thread_args){&mutex, i, 100, 10, 0};
-        progress_refs[i] = &args[i].progress;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+        print_threads_add_thread(&print_conf, threads[i], &args[i].progress);
     }
 
-    // Start printing print_configuration
-    printing_config *print_conf = print_threads_start(&mutex, threads, progress_refs, NUM_THREADS, 1, 50, '>', '=');
+    print_threads_start(&print_conf);
 
     // Wait for threads to complete
     for (int i = 0; i < NUM_THREADS; i++) {
@@ -52,7 +51,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Cleanup and exit
-    print_threads_finish(print_conf);
+    print_threads_finish(&print_conf);
     return 0;
 }
 
