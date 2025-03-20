@@ -166,6 +166,7 @@ void print_thread(thread_info *t, unsigned int bar_length, char *total_bar, char
                 bar_length - progress, "", i);
                 fflush(stdout);
     }
+    t->old_percentage = (*t->percentage); // Update old percentage
     printf("\n");
 }
 
