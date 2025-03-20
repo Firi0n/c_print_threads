@@ -230,9 +230,6 @@ void print_threads_finish(printing_config *conf) {
             free(conf->threads);
             conf->threads = NULL;
         }
-
-        // Free the configuration struct itself
-        free(conf);
     }
     printf("\e[?25h"); // Show the cursor
 }
