@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize and start threads
     for (int i = 0; i < NUM_THREADS; i++) {
-        args[i] = (thread_args){&mutex, i, 10, 1000, 0};
+        args[i] = (thread_args){&mutex, i, 100, 10, 0};
         progress_refs[i] = &args[i].progress;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
     }

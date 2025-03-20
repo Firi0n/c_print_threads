@@ -28,10 +28,6 @@ static void safe_mutex_unlock(pthread_mutex_t *mutex) {
     }
 }
 
-void print_thread_smoothly(printing_config *data){
-    
-}
-
 // Print the progress of each thread
 void print_threads(printing_config *data, bool overwrite) {
     safe_mutex_lock(data->mutex); // Lock the mutex to ensure safe output
