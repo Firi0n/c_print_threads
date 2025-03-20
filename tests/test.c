@@ -36,14 +36,15 @@ int main(int argc, char *argv[]) {
     thread_args args[NUM_THREADS];
     printing_config print_conf = print_threads_init(&mutex, 1, 50, '>', '=');
 
+    print_threads_start(&print_conf);
+
     // Initialize and start threads
     for (int i = 0; i < NUM_THREADS; i++) {
         args[i] = (thread_args){&mutex, i, 100, 10, 0};
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
         print_threads_add_thread(&print_conf, threads[i], &args[i].progress);
+        usleep(500000);
     }
-
-    print_threads_start(&print_conf);
 
     // Wait for threads to complete
     for (int i = 0; i < NUM_THREADS; i++) {
