@@ -32,6 +32,16 @@ make
 
 This will generate the executable `test`.
 
+#### Makefile Options
+
+The Makefile provides the following options:
+
+-   `make`: Compiles the project and generates the `test` executable and the static library `libprintthreads.a`.
+-   `make test`: Runs the compiled test program.
+-   `make install`: Installs the library and header to system directories (default prefix: `/usr/local`).
+-   `make uninstall`: Removes the installed library and header from system directories.
+-   `make clean`: Removes all build artifacts and binaries to clean the build environment.
+
 ### Running the Example
 
 To run the example program:
