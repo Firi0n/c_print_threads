@@ -13,11 +13,19 @@
 #define THREAD_INFO_INITIAL_DIM 10
 #define THREAD_INFO_MUL 2
 
+#define ERROR(type) "[Print threads: " type " error] "
+
+#define MUTEX_ERROR ERROR("Mutex")
+#define CONFIGURATION_ERROR ERROR("Configuration")
+#define INIT_ERROR ERROR("Init")
+#define THREAD_ERROR ERROR("Thread")
+#define START_ERROR ERROR("Start")
+
 // Safely lock the mutex and handle errors
 static void safe_mutex_lock(pthread_mutex_t *mutex) {
     int err = pthread_mutex_lock(mutex);
     if (err != 0) {
-        fprintf(stderr, "Error locking mutex: %s\n", strerror(err));
+        fprintf(stderr, MUTEX_ERROR "Error locking mutex: %s\n", strerror(err));
         exit(EXIT_FAILURE);
     }
 }
@@ -26,30 +34,30 @@ static void safe_mutex_lock(pthread_mutex_t *mutex) {
 static void safe_mutex_unlock(pthread_mutex_t *mutex) {
     int err = pthread_mutex_unlock(mutex);
     if (err != 0) {
-        fprintf(stderr, "Error unlocking mutex: %s\n", strerror(err));
+        fprintf(stderr, MUTEX_ERROR "Error unlocking mutex: %s\n", strerror(err));
         exit(EXIT_FAILURE);
     }
 }
 
 void conf_error(printing_config *conf) {
     if (conf == NULL) {
-        fprintf(stderr, "[Print threads Configuration Error] Printing configuration is NULL\n");
+        fprintf(stderr, CONFIGURATION_ERROR "Configuration is NULL\n");
         exit(EXIT_FAILURE);
     }
     if (conf->mutex == NULL) {
-        fprintf(stderr, "[Print threads Configuration Error] Mutex is NULL\n");
+        fprintf(stderr, CONFIGURATION_ERROR "Mutex is NULL\n");
         exit(EXIT_FAILURE);
     }
     if (conf->total_bar == NULL) {
-        fprintf(stderr, "[Print threads Configuration Error] Total bar is NULL\n");
+        fprintf(stderr, CONFIGURATION_ERROR "Total bar is NULL\n");
         exit(EXIT_FAILURE);
     }
     if (conf->threads == NULL) {
-        fprintf(stderr, "[Print threads Configuration Error] Threads info array is NULL\n");
+        fprintf(stderr, CONFIGURATION_ERROR "Threads info array is NULL\n");
         exit(EXIT_FAILURE);
     }
     if (conf->threads_dim < conf->num_threads) {
-        fprintf(stderr, "[Print threads Configuration Error] Number of threads (%d) greater than dimension of threads info array (%d)\n",
+        fprintf(stderr, CONFIGURATION_ERROR "Number of threads (%d) greater than dimension of threads info array (%d)\n",
                 conf->num_threads, conf->threads_dim);
         exit(EXIT_FAILURE);
     }
@@ -59,24 +67,24 @@ void conf_error(printing_config *conf) {
 printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_rate, unsigned int bar_length, char head_char, char body_char) {
     if (mutex == NULL)
     {
-        fprintf(stderr, "[Print threads Init Error] Mutex is NULL\n");
+        fprintf(stderr, INIT_ERROR "Mutex is NULL\n");
         exit(EXIT_FAILURE);
     }
     if (refresh_rate == 0)
     {
-        fprintf(stderr, "[Print threads Init Error] Refresh rate can't be 0\n");
+        fprintf(stderr, INIT_ERROR "Refresh rate can't be 0\n");
         exit(EXIT_FAILURE);
     }
     if (bar_length == 0)
     {
-        fprintf(stderr, "[Print threads Init Error] Bar length can't be 0\n");
+        fprintf(stderr, INIT_ERROR "Bar length can't be 0\n");
         exit(EXIT_FAILURE);
     }
     
     // Allocate memory for the progress bar
     char *total_bar = malloc((bar_length + 1) * sizeof(char));
     if (total_bar == NULL) {
-        perror("Error allocating the progress bar");
+        perror(INIT_ERROR "Error allocating the progress bar");
         exit(EXIT_FAILURE);
     }
 
@@ -89,7 +97,7 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
     // Allocate memory for the threads information array
     thread_info *threads = malloc(THREAD_INFO_INITIAL_DIM * sizeof(thread_info));
     if (threads == NULL) {
-        perror("Error allocating threads information");
+        perror(INIT_ERROR "Error allocating threads information");
         free(total_bar);
         exit(EXIT_FAILURE);
     }
@@ -120,7 +128,7 @@ void print_threads_add_thread(printing_config *conf, pthread_t thread, unsigned 
         conf->threads_dim *= 2;
         thread_info *new_threads = realloc(conf->threads, conf->threads_dim * sizeof(thread_info));
         if (new_threads == NULL) {
-            perror("Error reallocating threads array");
+            perror(THREAD_ERROR "Error reallocating threads array");
             safe_mutex_unlock(conf->mutex); // Unlock before exiting
             exit(EXIT_FAILURE);
         }
@@ -145,7 +153,7 @@ void print_threads_remove_thread(printing_config *conf) {
     safe_mutex_lock(conf->mutex); // Lock the mutex
 
     if (conf->num_threads == 0) {
-        fprintf(stderr, "Error: there aren't threads to remove\n");
+        fprintf(stderr, THREAD_ERROR "There aren't threads to remove\n");
     } else {
         conf->num_threads--;
     }
@@ -209,7 +217,7 @@ void print_threads_start(printing_config *conf) {
     // Create the print thread and handle potential errors
     int err = pthread_create(&conf->print_thread, NULL, print_threads_thread, (void *)conf);
     if (err != 0) {
-        fprintf(stderr, "Error creating print thread: %s\n", strerror(err));
+        fprintf(stderr, START_ERROR "Error creating print thread: %s\n", strerror(err));
         exit(EXIT_FAILURE);
     }
 }
