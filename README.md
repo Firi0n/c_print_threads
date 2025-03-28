@@ -8,19 +8,19 @@ consistency and thread safety.
 
 ## Features ✨
 
--   Dynamically add and remove threads during execution
--   Thread-safe printing using mutexes
--   Real-time progress tracking for multiple threads
--   Customizable progress bars (length, head, and body characters)
--   Automatic resizing of the threads array
--   Graceful shutdown of printing threads
+- Dynamically add and remove threads during execution
+- Thread-safe printing using mutexes
+- Real-time progress tracking for multiple threads
+- Customizable progress bars with dynamic length (head and body characters)
+- Automatic resizing of the threads array
+- Graceful shutdown of printing threads
 
 ## Getting Started 🚀
 
 ### Prerequisites
 
--   GCC
--   POSIX Threads Library (pthread)
+- GCC
+- POSIX Threads Library (pthread)
 
 ### Building
 
@@ -36,11 +36,11 @@ This will generate the executable `test`.
 
 The Makefile provides the following options:
 
--   `make`: Compiles the project and generates the `test` executable and the static library `libprintthreads.a`.
--   `make test`: Runs the compiled test program.
--   `make install`: Installs the library and header to system directories (default prefix: `/usr/local`).
--   `make uninstall`: Removes the installed library and header from system directories.
--   `make clean`: Removes all build artifacts and binaries to clean the build environment.
+- `make`: Compiles the project and generates the `test` executable and the static library `libprintthreads.a`.
+- `make test`: Runs the compiled test program.
+- `make install`: Installs the library and header to system directories (default prefix: `/usr/local`).
+- `make uninstall`: Removes the installed library and header from system directories.
+- `make clean`: Removes all build artifacts and binaries to clean the build environment.
 
 ### Running the Example
 
@@ -71,14 +71,13 @@ To create a new printing configuration, use the `print_threads_init` function:
 
 ```c
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-printing_config conf = print_threads_init(&mutex, 1, 50, '>', '=');
+printing_config conf = print_threads_init(&mutex, 1, '>', '=');
 ```
 
--   `mutex`: A pointer to a `pthread_mutex_t` for thread synchronization.
--   `refresh_rate`: The rate at which the progress is updated (in milliseconds).
--   `bar_length`: The length of the progress bar.
--   `head_char`: The character representing the progress head.
--   `body_char`: The character representing the body of the progress bar.
+- `mutex`: A pointer to a `pthread_mutex_t` for thread synchronization.
+- `refresh_rate`: The rate at which the progress is updated (in milliseconds).
+- `head_char`: The character representing the progress head.
+- `body_char`: The character representing the body of the progress bar.
 
 ### Threads management
 
@@ -93,9 +92,9 @@ You can dynamically add threads to the printing configuration using:
 print_threads_add_thread(&conf, thread_id, &progress);
 ```
 
--   `conf`: The printing configuration object.
--   `thread_id`: The ID of the thread to track.
--   `progress`: A pointer to an integer holding the progress percentage (0-100).
+- `conf`: The printing configuration object.
+- `thread_id`: The ID of the thread to track.
+- `progress`: A pointer to an integer holding the progress percentage (0-100).
 
 #### Removing Threads
 
@@ -150,7 +149,7 @@ void *worker(void *arg) {
 
 int main() {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    printing_config conf = print_threads_init(&mutex, 100, 30, '>', '-');
+    printing_config conf = print_threads_init(&mutex, 100, '>', '-');
     pthread_t thread;
     unsigned int progress = 0;
 
