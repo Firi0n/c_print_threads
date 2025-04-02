@@ -155,7 +155,7 @@ unsigned int get_terminal_width(){
 void realloc_total_bar(char **total_bar, int *len, int new_len, char body){
     char *tmp = realloc(*total_bar, (new_len + 1) * sizeof(char));
     if (!tmp) {
-        fprintf(stderr, "Errore allocazione: %s\n", strerror(errno));
+        fprintf(stderr, CONFIGURATION_ERROR "Error allocating total bar: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
     *len = new_len;
