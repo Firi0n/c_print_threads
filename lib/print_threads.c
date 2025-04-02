@@ -89,9 +89,9 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
         .threads_dim = THREAD_INFO_INITIAL_DIM,
         .num_threads = 0,
         .refresh_rate = refresh_rate * 1000,
-        .terminal_width = 0,
         .head_char = head_char,
         .body_char = body_char,
+        .len_total_bar = 0,
         .total_bar = NULL,
         .exit_condition = false
     };
@@ -152,49 +152,34 @@ unsigned int get_terminal_width(){
     return w.ws_col;
 }
 
-//Thread for get terminal width
-void *get_terminal_width_thread(void *arg){
-    printing_config *conf = (printing_config*)arg;
-    while (!conf->exit_condition)
-    {
-        unsigned int new_width = get_terminal_width();
-        // Compare the widths and change them only if necessary.
-        if (conf->terminal_width != new_width)
-        {
-            safe_mutex_lock(conf->mutex);
-            // Redefine total bar
-            char *temp_total_bar = realloc(conf->total_bar, (new_width+1)*sizeof(char));
-            if (temp_total_bar == NULL) {
-                fprintf(stderr, CONFIGURATION_ERROR "Error memory allocation: %s\n", strerror(errno));
-                safe_mutex_unlock(conf->mutex);
-                continue;
-            }
-            conf->total_bar = temp_total_bar;
-            memset(conf->total_bar, conf->body_char, new_width);
-            conf->total_bar[new_width] = '\0';
-            // Terminal width update
-            conf->terminal_width = new_width;
-
-            safe_mutex_unlock(conf->mutex);
-        }
-        usleep(conf->refresh_rate);
+void realloc_total_bar(char **total_bar, int *len, int new_len, char body){
+    char *tmp = realloc(*total_bar, (new_len + 1) * sizeof(char));
+    if (!tmp) {
+        fprintf(stderr, "Errore allocazione: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-    return NULL;
+    *len = new_len;
+    *total_bar = tmp;
+    memset(*total_bar, body, new_len);
+    (*total_bar)[new_len] = '\0';
 }
 
 // Print the progress of a single thread
-void print_thread(thread_info *t, unsigned int terminal_width, char *total_bar, char head) {
+void print_thread(thread_info *t, int *len_total_bar, char **total_bar, char head, char body) {
     printf("\033[2K"); // Clear the current line
 
-    unsigned int bar_length = terminal_width - snprintf(NULL, 0, "Thread %lu: [h] 100%%", t->thread) - 5;
-
+    unsigned int bar_length = get_terminal_width() - snprintf(NULL, 0, "Thread %lu: [h] 100%%", t->thread) - 5;
+    if (*len_total_bar < bar_length)
+    {
+        realloc_total_bar(total_bar, len_total_bar, bar_length, body);
+    }
     // Print the progress from the last percentage to the current one
     for (int i = t->old_percentage; i <= (*t->percentage); i++) {
         int progress = i * bar_length / 100;
 
         // Print the progress bar with the current percentage
         printf("Thread %lu: [%.*s%c%*s] %*d%%\r",
-                t->thread, progress, total_bar, head,
+                t->thread, progress, *total_bar, head,
                 bar_length - progress, "", 3, i);
     }
     t->old_percentage = (*t->percentage); // Update old percentage
@@ -204,10 +189,9 @@ void print_thread(thread_info *t, unsigned int terminal_width, char *total_bar, 
 // Print the progress of all threads, optionally overwriting previous output
 void print_threads(printing_config *conf, bool overwrite) {
     safe_mutex_lock(conf->mutex); // Lock the mutex to ensure thread safety
-
     // Print progress for each thread
     for (int i = 0; i < conf->num_threads; i++) {        
-        print_thread(&conf->threads[i], conf->terminal_width, conf->total_bar, conf->head_char);
+        print_thread(&conf->threads[i], &conf->len_total_bar, &conf->total_bar, conf->head_char, conf->body_char);
     }
 
     // Move the cursor up to overwrite the previous lines, if needed
@@ -238,14 +222,8 @@ void print_threads_start(printing_config *conf) {
     conf_error(conf); // Check the configuration for errors
     printf("\e[?25l"); // Hide the cursor
 
-    // Create the get terminal width thread and handle potential errors
-    int err = pthread_create(&conf->get_terminal_width_thread, NULL, get_terminal_width_thread, (void *)conf);
-    if (err != 0) {
-        fprintf(stderr, START_ERROR "Error creating terminal width thread: %s\n", strerror(err));
-        exit(EXIT_FAILURE);
-    }
     // Create the print thread and handle potential errors
-    err = pthread_create(&conf->print_thread, NULL, print_threads_thread, (void *)conf);
+    int err = pthread_create(&conf->print_thread, NULL, print_threads_thread, (void *)conf);
     if (err != 0) {
         fprintf(stderr, START_ERROR "Error creating print thread: %s\n", strerror(err));
         exit(EXIT_FAILURE);
@@ -256,8 +234,8 @@ void print_threads_start(printing_config *conf) {
 void print_threads_finish(printing_config *conf) {
     if (conf != NULL) {
         conf->exit_condition = true;
+        
         pthread_join(conf->print_thread, NULL); // Join print thread
-        pthread_join(conf->get_terminal_width_thread, NULL); // Join get terminal width thread
 
         // Free the progress bar
         if (conf->total_bar != NULL) {
