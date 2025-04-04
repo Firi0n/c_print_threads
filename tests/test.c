@@ -22,10 +22,10 @@ void *worker_thread(void *arg) {
         pthread_mutex_lock(args->mutex);
         args->progress = (int)((float)i * 100 / args->max_count);
         pthread_mutex_unlock(args->mutex);
-        print_in_thread(args->mutex, "Thread %d: %d", args->id, i);
+        print_in_thread("Thread %d: %d", args->id, i);
         usleep(args->delay_us*1000);
     }
-    print_in_thread(args->mutex, "Thread %d finished!", args->id);
+    print_in_thread("Thread %d finished!", args->id);
     return NULL;
 }
 
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < NUM_THREADS; i++) {
         args[i] = (thread_args){&mutex, i, 100, 50, 0};
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
-        print_threads_add_thread(&print_conf, threads[i], &args[i].progress);
+        print_threads_add_thread(threads[i], &args[i].progress);
     }
 
     // Wait for threads to complete
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Cleanup and exit
-    print_threads_finish(&print_conf);
+    print_threads_finish();
     return 0;
 }
 

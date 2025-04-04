@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #define THREAD_INFO_INITIAL_DIM 10
 #define THREAD_INFO_MUL 2
@@ -37,6 +38,64 @@ static void safe_mutex_unlock(pthread_mutex_t *mutex) {
     int err = pthread_mutex_unlock(mutex);
     if (err != 0) {
         fprintf(stderr, MUTEX_ERROR "Error unlocking mutex: %s\n", strerror(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
+printing_config *global_config(printing_config *conf){
+    static printing_config *global_conf = NULL;
+    if (conf != NULL)
+    {
+        global_conf = conf;
+        return NULL;
+    } else {
+        return global_conf;
+    }
+}
+
+// Return the width of the terminal
+unsigned int get_terminal_width(){
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        fprintf(stderr, CONFIGURATION_ERROR "Error getting terminal size: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return w.ws_col;
+}
+
+//
+void sigwinch_handler(int signo, siginfo_t *info, void *unused){
+    printing_config *conf = global_config(NULL);
+    if (conf == NULL || conf->mutex == NULL) return;
+    unsigned int new_width = get_terminal_width();
+    // Compare the widths and change them only if necessary.
+    safe_mutex_lock(conf->mutex);
+    // Redefine total bar
+    char *temp_total_bar = realloc(conf->total_bar, (new_width+1)*sizeof(char));
+    if (temp_total_bar == NULL) {
+        fprintf(stderr, CONFIGURATION_ERROR "Error memory allocation: %s\n", strerror(errno));
+        safe_mutex_unlock(conf->mutex);
+        return;
+    }
+    conf->total_bar = temp_total_bar;
+    memset(conf->total_bar, conf->body_char, new_width);
+    conf->total_bar[new_width] = '\0';
+    // Terminal width update
+    conf->terminal.old_width = conf->terminal.width;
+    conf->terminal.width = new_width;
+    safe_mutex_unlock(conf->mutex);
+}
+
+// Function to register the SIGWINCH handler
+void register_sigwinch_handler() {
+    struct sigaction sa;
+    sa.sa_flags = SA_SIGINFO;  // Enable the use of sa_sigaction
+    sa.sa_sigaction = sigwinch_handler;  // Set the signal handler function
+    sigemptyset(&sa.sa_mask);  // Do not block any signals during handler execution
+
+    // Set the signal handler for SIGWINCH
+    if (sigaction(SIGWINCH, &sa, NULL) == -1) {
+        perror("Error registering SIGWINCH handler");
         exit(EXIT_FAILURE);
     }
 }
@@ -75,6 +134,17 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
         exit(EXIT_FAILURE);
     }
 
+    unsigned int terminal_width = get_terminal_width();
+
+    char *total_bar = malloc((terminal_width+1)*sizeof(char));
+    if (total_bar == NULL) {
+        fprintf(stderr, CONFIGURATION_ERROR "Error memory allocation: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    memset(total_bar, body_char, terminal_width);
+    total_bar[terminal_width] = '\0';
+
     // Allocate memory for the threads information array
     thread_info *threads = malloc(THREAD_INFO_INITIAL_DIM * sizeof(thread_info));
     if (threads == NULL) {
@@ -90,19 +160,20 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
         .num_threads = 0,
         .refresh_rate = refresh_rate * 1000,
         .terminal = {
-            .width = 0,
-            .old_width = 0
+            .width = terminal_width,
+            .old_width = terminal_width
         },
         .head_char = head_char,
         .body_char = body_char,
-        .total_bar = NULL,
+        .total_bar = total_bar,
         .exit_condition = false
     };
 }
 
 // Pushes a thread onto the LIFO
-void print_threads_add_thread(printing_config *conf, pthread_t thread, unsigned int *percentage) {
-    
+void print_threads_add_thread(pthread_t thread, unsigned int *percentage) {
+
+    printing_config *conf = global_config(NULL);
     conf_error(conf);
 
     safe_mutex_lock(conf->mutex); // Lock the mutex
@@ -131,8 +202,8 @@ void print_threads_add_thread(printing_config *conf, pthread_t thread, unsigned 
 }
 
 // Pops a thread from the LIFO
-void print_threads_remove_thread(printing_config *conf) {
-    
+void print_threads_remove_thread() {
+    printing_config *conf = global_config(NULL);
     conf_error(conf);
 
     safe_mutex_lock(conf->mutex); // Lock the mutex
@@ -145,52 +216,12 @@ void print_threads_remove_thread(printing_config *conf) {
     safe_mutex_unlock(conf->mutex); // Unlock the mutex
 }
 
-// Return the width of the terminal
-unsigned int get_terminal_width(){
-    struct winsize w;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
-        fprintf(stderr, CONFIGURATION_ERROR "Error getting terminal size: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    return w.ws_col;
-}
-
-//Thread for get terminal width
-void *get_terminal_width_thread(void *arg){
-    printing_config *conf = (printing_config*)arg;
-    while (!conf->exit_condition)
-    {
-        unsigned int new_width = get_terminal_width();
-        // Compare the widths and change them only if necessary.
-        if (conf->terminal.width != new_width)
-        {
-            safe_mutex_lock(conf->mutex);
-            // Redefine total bar
-            char *temp_total_bar = realloc(conf->total_bar, (new_width+1)*sizeof(char));
-            if (temp_total_bar == NULL) {
-                fprintf(stderr, CONFIGURATION_ERROR "Error memory allocation: %s\n", strerror(errno));
-                safe_mutex_unlock(conf->mutex);
-                continue;
-            }
-            conf->total_bar = temp_total_bar;
-            memset(conf->total_bar, conf->body_char, new_width);
-            conf->total_bar[new_width] = '\0';
-            // Terminal width update
-            conf->terminal.old_width = conf->terminal.width;
-            conf->terminal.width = new_width;
-
-            safe_mutex_unlock(conf->mutex);
-        }
-        usleep(conf->refresh_rate);
-    }
-    return NULL;
-}
 
 // Print the progress of a single thread
 void print_thread(thread_info *t, unsigned int terminal_width, char *total_bar, char head) {
     printf("\033[2K"); // Clear the current line
 
-    unsigned int bar_length = terminal_width - snprintf(NULL, 0, "Thread %lu: [h] 100%%", t->thread) - 5;
+    unsigned int bar_length = terminal_width - 35;
 
     // Print the progress from the last percentage to the current one
     for (int i = t->old_percentage; i <= (*t->percentage); i++) {
@@ -224,7 +255,7 @@ void print_threads(printing_config *conf, bool overwrite) {
 
 // Thread function that continuously prints thread progress
 void *print_threads_thread(void *arg) {
-    printing_config *conf = (printing_config*)arg;
+    printing_config *conf = global_config(NULL);
 
     // Continuously print threads' progress while the exit condition is not met
     while (!conf->exit_condition) {
@@ -239,17 +270,17 @@ void *print_threads_thread(void *arg) {
 
 // Start the print thread
 void print_threads_start(printing_config *conf) {
+    //Set global struct
+    global_config(conf);
+
     conf_error(conf); // Check the configuration for errors
     printf("\e[?25l"); // Hide the cursor
 
-    // Create the get terminal width thread and handle potential errors
-    int err = pthread_create(&conf->terminal.thread, NULL, get_terminal_width_thread, (void *)conf);
-    if (err != 0) {
-        fprintf(stderr, START_ERROR "Error creating terminal width thread: %s\n", strerror(err));
-        exit(EXIT_FAILURE);
-    }
+    //Start window width handler
+    register_sigwinch_handler();
+
     // Create the print thread and handle potential errors
-    err = pthread_create(&conf->print_thread, NULL, print_threads_thread, (void *)conf);
+    int err = pthread_create(&conf->print_thread, NULL, print_threads_thread, NULL);
     if (err != 0) {
         fprintf(stderr, START_ERROR "Error creating print thread: %s\n", strerror(err));
         exit(EXIT_FAILURE);
@@ -257,11 +288,12 @@ void print_threads_start(printing_config *conf) {
 }
 
 // Stop the printing thread and clean up resources
-void print_threads_finish(printing_config *conf) {
+void print_threads_finish() {
+    //Get global config
+    printing_config *conf = global_config(NULL);
     if (conf != NULL) {
         conf->exit_condition = true;
         pthread_join(conf->print_thread, NULL); // Join print thread
-        pthread_join(conf->terminal.thread, NULL); // Join get terminal width thread
 
         // Free the progress bar
         if (conf->total_bar != NULL) {
@@ -279,7 +311,8 @@ void print_threads_finish(printing_config *conf) {
 }
 
 // Print a formatted message within a locked mutex
-void print_in_thread(pthread_mutex_t *mutex, const char *format, ...) {
+void print_in_thread(const char *format, ...) {
+    pthread_mutex_t *mutex = global_config(NULL)->mutex;
     va_list args;
     va_start(args, format);
     safe_mutex_lock(mutex); // Lock the mutex to ensure safe printing

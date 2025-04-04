@@ -13,7 +13,6 @@ typedef struct {
 } thread_info;
 
 typedef struct {
-    pthread_t thread;            // Terminal width thread identifier
     unsigned int width;          // Width of the terminal
     unsigned int old_width;      // Old width of the terminal
 } terminal_info;
@@ -47,18 +46,15 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
 /**
  * @brief Add a thread to the printing configuration.
  * 
- * @param conf The printing configuration to which the thread will be added.
  * @param thread The thread identifier to be tracked.
  * @param percentage Pointer to the percentage variable of the thread.
  */
-void print_threads_add_thread(printing_config *conf, pthread_t thread, unsigned int *percentage);
+void print_threads_add_thread(pthread_t thread, unsigned int *percentage);
 
 /**
  * @brief Remove a thread from the printing configuration.
- * 
- * @param conf The printing configuration from which the thread will be removed.
  */
-void print_threads_remove_thread(printing_config *conf);
+void print_threads_remove_thread();
 
 /**
  * @brief Start the printing thread to continuously display progress.
@@ -69,18 +65,15 @@ void print_threads_start(printing_config *conf);
 
 /**
  * @brief Stop the printing thread and clean up resources.
- * 
- * @param conf The printing configuration to be finalized.
  */
-void print_threads_finish(printing_config *conf);
+void print_threads_finish();
 
 /**
  * @brief Print a formatted message safely from a thread.
  * 
- * @param mutex The mutex to lock during printing.
  * @param format The format string (like in printf).
  * @param ... Additional arguments for the format string.
  */
-void print_in_thread(pthread_mutex_t *mutex, const char *format, ...);
+void print_in_thread(const char *format, ...);
 
 #endif // PRINT_THREADS_H
