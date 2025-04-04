@@ -12,16 +12,21 @@ typedef struct {
     unsigned int old_percentage; // Previous percentage of thread completion
 } thread_info;
 
+typedef struct {
+    pthread_t thread;            // Terminal width thread identifier
+    unsigned int width;          // Width of the terminal
+    unsigned int old_width;      // Old width of the terminal
+} terminal_info;
+
 // Struct to hold configuration for printing thread progress
 typedef struct {
     pthread_t print_thread;                 // Thread responsible for printing progress
-    pthread_t get_terminal_width_thread;    // Thread responsible for get terminal width
     pthread_mutex_t *mutex;                 // Mutex for synchronized output
+    terminal_info terminal;                 // Struct to save terminal info
     thread_info *threads;                   // Array of thread information
     unsigned int threads_dim;               // Dimension of the thread information array
     unsigned int num_threads;               // Number of threads being tracked
     unsigned int refresh_rate;              // Refresh rate of the printing (in milliseconds)
-    unsigned int terminal_width;            // Width of the terminal
     char head_char;                         // Character used as the head of the progress bar
     char body_char;                         // Character used as the body of the progress bar
     char *total_bar;                        // Complete bar representation
