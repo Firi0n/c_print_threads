@@ -22,10 +22,10 @@ void *worker_thread(void *arg) {
         pthread_mutex_lock(args->mutex);
         args->progress = (unsigned short)((float)i * 100 / args->max_count);
         pthread_mutex_unlock(args->mutex);
-        print_in_thread(args->mutex, "Thread %d: %d", args->id, i);
+        print_in_thread("Thread %d: %d", args->id, i);
         usleep(args->delay_us*1000);
     }
-    print_in_thread(args->mutex, "Thread %d finished!", args->id);
+    print_in_thread("Thread %d finished!", args->id);
     return NULL;
 }
 

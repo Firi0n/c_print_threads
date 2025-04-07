@@ -76,10 +76,9 @@ void print_threads_finish();
 /**
  * @brief Print a formatted message safely from a thread.
  * 
- * @param mutex The mutex to lock during printing.
  * @param format The format string (like in printf).
  * @param ... Additional arguments for the format string.
  */
-void print_in_thread(pthread_mutex_t *mutex, const char *format, ...);
+void print_in_thread(const char *format, ...);
 
 #endif // PRINT_THREADS_H

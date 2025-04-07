@@ -89,10 +89,9 @@ thread is the first to be removed.
 You can dynamically add threads to the printing configuration using:
 
 ```c
-print_threads_add_thread(&conf, thread_id, &progress);
+print_threads_add_thread(thread_id, &progress);
 ```
 
-- `conf`: The printing configuration object.
 - `thread_id`: The ID of the thread to track.
 - `progress`: A pointer to an integer holding the progress percentage (0-100).
 
@@ -101,7 +100,7 @@ print_threads_add_thread(&conf, thread_id, &progress);
 To remove a thread when it is no longer needed:
 
 ```c
-print_threads_remove_thread(&conf);
+print_threads_remove_thread();
 ```
 
 ### Starting and Stopping the Print Thread
@@ -115,7 +114,7 @@ print_threads_start(&conf);
 Stop the printing thread and clean up resources:
 
 ```c
-print_threads_finish(&conf);
+print_threads_finish();
 ```
 
 ### Safe Printing from Threads
@@ -123,7 +122,7 @@ print_threads_finish(&conf);
 The library provides a function to print messages from any thread safely:
 
 ```c
-print_in_thread(&mutex, "Message: %d", value);
+print_in_thread("Message: %d", value);
 ```
 
 This function ensures that the output is not disrupted by concurrent printing.
@@ -139,7 +138,7 @@ The example shown here is a minimal demonstration of the library's usage:
 #include <unistd.h>
 
 void *worker(void *arg) {
-    unsigned int *progress = (unsigned int *)arg;
+    unsigned short *progress = (unsigned short *)arg;
     for (int i = 0; i <= 100; i++) {
         *progress = i;
         usleep(50000);
@@ -154,11 +153,11 @@ int main() {
     unsigned int progress = 0;
 
     pthread_create(&thread, NULL, worker, &progress);
-    print_threads_add_thread(&conf, thread, &progress);
     print_threads_start(&conf);
+    print_threads_add_thread(thread, &progress);
 
     pthread_join(thread, NULL);
-    print_threads_finish(&conf);
+    print_threads_finish();
     return 0;
 }
 ```

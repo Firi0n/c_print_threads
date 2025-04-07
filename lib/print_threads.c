@@ -355,7 +355,8 @@ void print_threads_finish() {
 }
 
 // Print a formatted message within a locked mutex
-void print_in_thread(pthread_mutex_t *mutex, const char *format, ...) {
+void print_in_thread(const char *format, ...) {
+    pthread_mutex_t *mutex = global_config(NULL)->mutex;
     va_list args;
     va_start(args, format);
     safe_mutex_lock(mutex); // Lock the mutex to ensure safe printing
