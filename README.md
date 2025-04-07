@@ -71,7 +71,7 @@ To create a new printing configuration, use the `print_threads_init` function:
 
 ```c
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-printing_config conf = print_threads_init(&mutex, 1, '>', '=');
+printing_config conf = prthreads.init(&mutex, 1, '>', '=');
 ```
 
 - `mutex`: A pointer to a `pthread_mutex_t` for thread synchronization.
@@ -89,7 +89,7 @@ thread is the first to be removed.
 You can dynamically add threads to the printing configuration using:
 
 ```c
-print_threads_add_thread(thread_id, &progress);
+prthreads.add_thread(thread_id, &progress);
 ```
 
 - `thread_id`: The ID of the thread to track.
@@ -100,7 +100,7 @@ print_threads_add_thread(thread_id, &progress);
 To remove a thread when it is no longer needed:
 
 ```c
-print_threads_remove_thread();
+prthreads.remove_thread();
 ```
 
 ### Starting and Stopping the Print Thread
@@ -108,13 +108,13 @@ print_threads_remove_thread();
 Start the printing thread to continuously display progress:
 
 ```c
-print_threads_start(&conf);
+prthreads.start(&conf);
 ```
 
 Stop the printing thread and clean up resources:
 
 ```c
-print_threads_finish();
+prthreads.finish();
 ```
 
 ### Safe Printing from Threads
@@ -122,7 +122,7 @@ print_threads_finish();
 The library provides a function to print messages from any thread safely:
 
 ```c
-print_in_thread("Message: %d", value);
+prthreads.print_in_thread("Message: %d", value);
 ```
 
 This function ensures that the output is not disrupted by concurrent printing.
@@ -148,16 +148,16 @@ void *worker(void *arg) {
 
 int main() {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    printing_config conf = print_threads_init(&mutex, 100, '>', '-');
+    printing_config conf = prthreads.init(&mutex, 100, '>', '-');
     pthread_t thread;
     unsigned int progress = 0;
 
     pthread_create(&thread, NULL, worker, &progress);
-    print_threads_start(&conf);
-    print_threads_add_thread(thread, &progress);
+    prthreads.start(&conf);
+    prthreads.add_thread(thread, &progress);
 
     pthread_join(thread, NULL);
-    print_threads_finish();
+    prthreads.finish();
     return 0;
 }
 ```
