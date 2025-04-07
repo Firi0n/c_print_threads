@@ -22,10 +22,10 @@ void *worker_thread(void *arg) {
         pthread_mutex_lock(args->mutex);
         args->progress = (unsigned short)((float)i * 100 / args->max_count);
         pthread_mutex_unlock(args->mutex);
-        print_in_thread("Thread %d: %d", args->id, i);
+        prthreads.print_in_thread("Thread %d: %d", args->id, i);
         usleep(args->delay_us*1000);
     }
-    print_in_thread("Thread %d finished!", args->id);
+    prthreads.print_in_thread("Thread %d finished!", args->id);
     return NULL;
 }
 
@@ -34,21 +34,22 @@ int main(int argc, char *argv[]) {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_t threads[NUM_THREADS];
     thread_args args[NUM_THREADS];
-    printing_config print_conf = print_threads_init(&mutex, 1, '>', '=');
+    
+    printing_config print_conf = prthreads.init_config(&mutex, 1, '>', '=');
 
-    print_threads_start(&print_conf);
+    prthreads.start(&print_conf);
 
     // Initialize and start threads
     for (int i = 0; i < NUM_THREADS; i++) {
         args[i] = (thread_args){&mutex, i, 100, 50, 0};
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
-        print_threads_add_thread(threads[i], &args[i].progress);
+        prthreads.add_thread(threads[i], &args[i].progress);
     }
     // Wait for threads to complete
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
-    print_threads_finish();
+    prthreads.finish();
     return 0;
 }
 

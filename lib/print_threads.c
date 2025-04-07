@@ -165,7 +165,7 @@ void conf_error(printing_config *conf) {
 }
 
 // Initialize the printing_config struct
-printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_rate, char head_char, char body_char) {
+printing_config init(pthread_mutex_t *mutex, unsigned int refresh_rate, char head_char, char body_char) {
     if (mutex == NULL)
     {
         fprintf(stderr, INIT_ERROR "Mutex is NULL\n");
@@ -205,7 +205,7 @@ printing_config print_threads_init(pthread_mutex_t *mutex, unsigned int refresh_
 }
 
 // Pushes a thread onto the LIFO
-void print_threads_add_thread(pthread_t thread, unsigned short *percentage) {
+void add_thread(pthread_t thread, unsigned short *percentage) {
     // Get the configuration and control its state
     printing_config *conf = global_config(NULL);
     conf_error(conf);
@@ -236,7 +236,7 @@ void print_threads_add_thread(pthread_t thread, unsigned short *percentage) {
 }
 
 // Pops a thread from the LIFO
-void print_threads_remove_thread() {
+void remove_thread() {
     // Get the configuration and control its state
     printing_config *conf = global_config(NULL);
     conf_error(conf);
@@ -252,7 +252,7 @@ void print_threads_remove_thread() {
 }
 
 // Print the progress of a single thread
-void print_thread(thread_info *t, unsigned short *terminal_width, char *total_bar, char head) {
+void print_thread_fun(thread_info *t, unsigned short *terminal_width, char *total_bar, char head) {
     safe_write(CLEAR_LINE);
 
     // Print the progress from the last percentage to the current one
@@ -271,12 +271,12 @@ void print_thread(thread_info *t, unsigned short *terminal_width, char *total_ba
 }
 
 // Print the progress of all threads, optionally overwriting previous output
-void print_threads(printing_config *conf, bool overwrite) {
+void print_threads_fun(printing_config *conf, bool overwrite) {
     safe_mutex_lock(conf->mutex); // Lock the mutex to ensure thread safety
 
     // Print progress for each thread
     for (int i = 0; i < conf->num_threads; i++) {        
-        print_thread(&conf->threads[i], &conf->terminal.width, conf->total_bar, conf->head_char);
+        print_thread_fun(&conf->threads[i], &conf->terminal.width, conf->total_bar, conf->head_char);
     }
 
     // Move the cursor up to overwrite the previous lines, if needed
@@ -293,17 +293,17 @@ void *print_threads_thread(void *arg) {
 
     // Continuously print threads' progress while the exit condition is not met
     while (!conf->exit_condition) {
-        print_threads(conf, true); // Print progress with overwriting
+        print_threads_fun(conf, true); // Print progress with overwriting
         usleep(conf->refresh_rate); // Sleep for the specified refresh rate
     }
 
     // Final print to display the last state without overwriting
-    print_threads(conf, false);
+    print_threads_fun(conf, false);
     return NULL;
 }
 
 // Start the print thread
-void print_threads_start(printing_config *conf) {
+void start(printing_config *conf) {
     conf_error(conf); // Check the configuration for errors
     safe_write(HIDE_CURSOR);
     global_config(conf); // Set the global config
@@ -332,7 +332,7 @@ void print_threads_start(printing_config *conf) {
 }
 
 // Stop the printing thread and clean up resources
-void print_threads_finish() {
+void finish() {
     printing_config *conf = global_config(NULL);
     if (conf != NULL) {
         conf->exit_condition = true;
@@ -367,3 +367,13 @@ void print_in_thread(const char *format, ...) {
     safe_mutex_unlock(mutex); // Unlock the mutex
     va_end(args);
 }
+
+// Public components
+const print_threads prthreads = (print_threads){
+    .init_config = init,
+    .add_thread = add_thread,
+    .remove_thread = remove_thread,
+    .start = start,
+    .finish = finish,
+    .print_in_thread = print_in_thread
+};
